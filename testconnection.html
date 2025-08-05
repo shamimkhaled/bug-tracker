@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Tracker - Real-time Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #21262d;
+            padding: 15px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f85149;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #3fb950;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .controls {
+            background: #21262d;
+            padding: 15px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: #238636;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: #2ea043;
+        }
+
+        .btn.danger {
+            background: #da3633;
+        }
+
+        .btn.danger:hover {
+            background: #f85149;
+        }
+
+        .btn:disabled {
+            background: #484f58;
+            cursor: not-allowed;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-group input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .input-group label {
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .monitor-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #0d1117;
+        }
+
+        .message-log {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            height: 100%;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-entry {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #30363d;
+        }
+
+        .log-entry.connection {
+            border-left-color: #3fb950;
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .log-entry.bug {
+            border-left-color: #f85149;
+            background: rgba(248, 81, 73, 0.1);
+        }
+
+        .log-entry.comment {
+            border-left-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .log-entry.typing {
+            border-left-color: #f2cc60;
+            background: rgba(242, 204, 96, 0.1);
+        }
+
+        .log-entry.error {
+            border-left-color: #f85149;
+            background: rgba(248, 81, 73, 0.15);
+        }
+
+        .timestamp {
+            color: #8b949e;
+            font-size: 11px;
+        }
+
+        .event-type {
+            font-weight: bold;
+            color: #58a6ff;
+            font-size: 14px;
+        }
+
+        .user-info {
+            color: #f2cc60;
+            font-weight: bold;
+        }
+
+        .sidebar h3 {
+            color: #f0f6fc;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .sidebar .section {
+            margin-bottom: 25px;
+        }
+
+        .sidebar .item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: #21262d;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .sidebar .item:hover {
+            background: #30363d;
+        }
+
+        .sidebar .item.active {
+            background: #1f6feb;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #161b22;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #58a6ff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #8b949e;
+            text-transform: uppercase;
+        }
+
+        .api-tester {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .api-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .api-form select,
+        .api-form textarea {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .api-form textarea {
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .test-templates {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .template-btn {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .template-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+
+        .clear-log {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #da3633;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .filter-btn.active {
+            background: #1f6feb;
+            border-color: #1f6feb;
+        }
+
+        .json-formatter {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .json-key {
+            color: #79c0ff;
+        }
+
+        .json-string {
+            color: #a5d6ff;
+        }
+
+        .json-number {
+            color: #79c0ff;
+        }
+
+        .json-boolean {
+            color: #f2cc60;
+        }
+
+        .auth-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .auth-warning a {
+            color: #856404;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <h3>🔧 Connection Settings</h3>
+            <div class="section">
+                <div class="input-group">
+                    <label>Project ID:</label>
+                    <input type="number" id="projectId" value="1" min="1">
+                </div>
+                <div class="input-group" style="margin-top: 10px;">
+                    <label>WebSocket URL:</label>
+                    <input type="text" id="wsUrl" value="ws://localhost:8000/ws/project/" style="width: 100%;">
+                </div>
+                <div class="input-group" style="margin-top: 10px;">
+                    <label>Session Key:</label>
+                    <input type="text" id="sessionKey" placeholder="Optional: paste session key" style="width: 100%;">
+                </div>
+                <div class="auth-warning">
+                    <strong>⚠️ Authentication Required:</strong><br>
+                    1. Login to <a href="/admin/" target="_blank">Django Admin</a><br>
+                    2. Or paste your session key above<br>
+                    3. Then click Connect
+                </div>
+            </div>
+
+            <h3>📊 Statistics</h3>
+            <div class="section">
+                <div class="stat-card">
+                    <div class="stat-number" id="msgCount">0</div>
+                    <div class="stat-label">Messages</div>
+                </div>
+                <div class="stat-card" style="margin-top: 10px;">
+                    <div class="stat-number" id="connectionTime">00:00</div>
+                    <div class="stat-label">Connected</div>
+                </div>
+            </div>
+
+            <h3>🎛️ Test Tools</h3>
+            <div class="section">
+                <div class="item" onclick="sendPing()">📡 Send Ping</div>
+                <div class="item" onclick="testTyping()">⌨️ Test Typing</div>
+                <div class="item" onclick="sendCustomMessage()">📝 Custom Message</div>
+                <div class="item" onclick="stressTest()">⚡ Stress Test</div>
+                <div class="item" onclick="getSessionFromBrowser()">🔑 Get Session Key</div>
+            </div>
+
+            <h3>🌐 API Tester</h3>
+            <div class="api-tester">
+                <div class="api-form">
+                    <select id="apiMethod">
+                        <option value="POST">POST</option>
+                        <option value="GET">GET</option>
+                        <option value="PUT">PUT</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                    <input type="text" id="apiEndpoint" placeholder="API Endpoint (e.g., /api/bugs/)">
+                    <textarea id="apiPayload" placeholder="JSON Payload">{}</textarea>
+                    <button class="btn" onclick="sendApiRequest()">Send API Request</button>
+                </div>
+                <div class="test-templates">
+                    <button class="template-btn" onclick="loadTemplate('createBug')">Create Bug</button>
+                    <button class="template-btn" onclick="loadTemplate('addComment')">Add Comment</button>
+                    <button class="template-btn" onclick="loadTemplate('updateStatus')">Update Status</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <h1>🐛 Bug Tracker - Real-time Monitor</h1>
+                <div class="connection-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span id="connectionStatus">Disconnected</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="connectBtn" onclick="toggleConnection()">Connect</button>
+                <button class="btn danger" onclick="clearLog()">Clear Log</button>
+                <div class="input-group">
+                    <label>JWT Token:</label>
+                    <input type="password" id="jwtToken" placeholder="Paste JWT token here" style="width: 300px;">
+                </div>
+                <button class="btn" onclick="loginAndGetToken()">Get Token</button>
+            </div>
+
+            <div class="filter-controls">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="connection">Connection</button>
+                <button class="filter-btn" data-filter="bug">Bugs</button>
+                <button class="filter-btn" data-filter="comment">Comments</button>
+                <button class="filter-btn" data-filter="typing">Typing</button>
+                <button class="filter-btn" data-filter="error">Errors</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="bugEvents">0</div>
+                    <div class="stat-label">Bug Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="commentEvents">0</div>
+                    <div class="stat-label">Comments</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="typingEvents">0</div>
+                    <div class="stat-label">Typing Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="errorEvents">0</div>
+                    <div class="stat-label">Errors</div>
+                </div>
+            </div>
+
+            <div class="monitor-area">
+                <div class="message-log" id="messageLog">
+                    <div class="log-entry connection">
+                        <div class="timestamp">Starting monitoring session...</div>
+                        <div class="event-type">🚀 Monitor Ready</div>
+                        <div>Welcome to the Bug Tracker Real-time Monitor!</div>
+                        <div>1. Login to Django admin first: <a href="/admin/" target="_blank" style="color: #58a6ff;">/admin/</a></div>
+                        <div>2. Enter your project ID and connect</div>
+                        <div>3. Use the API tester or Postman to trigger events</div>
+                        <div>4. Watch real-time notifications appear below</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let connectionStartTime = null;
+        let messageCount = 0;
+        let currentFilter = 'all';
+        let stats = {
+            bugs: 0,
+            comments: 0,
+            typing: 0,
+            errors: 0
+        };
+
+        // API Templates
+        const templates = {
+            createBug: {
+                endpoint: '/api/bugs/',
+                method: 'POST',
+                payload: {
+                    title: 'Real-time Test Bug',
+                    description: 'This bug was created to test WebSocket notifications',
+                    priority: 'High',
+                    project: 1
+                }
+            },
+            addComment: {
+                endpoint: '/api/comments/',
+                method: 'POST',
+                payload: {
+                    bug: 1,
+                    message: 'This comment should trigger a real-time notification!'
+                }
+            },
+            updateStatus: {
+                endpoint: '/api/bugs/1/',
+                method: 'PATCH',
+                payload: {
+                    status: 'In Progress'
+                }
+            }
+        };
+
+        function toggleConnection() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const projectId = document.getElementById('projectId').value;
+            const wsUrl = document.getElementById('wsUrl').value;
+            const sessionKey = document.getElementById('sessionKey').value;
+            
+            // Build WebSocket URL with session key if provided
+            let fullUrl = `${wsUrl}${projectId}/`;
+            if (sessionKey.trim()) {
+                fullUrl += `?session_key=${sessionKey.trim()}`;
+                addLogEntry('connection', 'Connecting...', `Attempting to connect with session key to ${fullUrl}`);
+            } else {
+                addLogEntry('connection', 'Connecting...', `Attempting to connect with browser cookies to ${fullUrl}`);
+            }
+
+            try {
+                ws = new WebSocket(fullUrl);
+
+                ws.onopen = function(event) {
+                    connectionStartTime = new Date();
+                    updateConnectionStatus(true);
+                    addLogEntry('connection', '✅ Connected', `Successfully connected to project ${projectId}`);
+                    startConnectionTimer();
+                };
+
+                ws.onmessage = function(event) {
+                    messageCount++;
+                    document.getElementById('msgCount').textContent = messageCount;
+
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (e) {
+                        addLogEntry('error', '❌ Parse Error', `Failed to parse message: ${event.data}`);
+                        updateStats('errors');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    addLogEntry('error', '❌ WebSocket Error', 'Connection error occurred');
+                    updateStats('errors');
+                };
+
+                ws.onclose = function(event) {
+                    updateConnectionStatus(false);
+                    let reason = `Connection closed (Code: ${event.code})`;
+                    
+                    if (event.code === 1006) {
+                        reason += '\n🔒 This usually means authentication failed.\nTry:\n1. Login to Django admin first\n2. Or paste your session key above';
+                    }
+                    
+                    addLogEntry('connection', '🔌 Disconnected', reason);
+                    stopConnectionTimer();
+                };
+
+            } catch (error) {
+                addLogEntry('error', '❌ Connection Failed', error.message);
+                updateStats('errors');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const status = document.getElementById('connectionStatus');
+            const btn = document.getElementById('connectBtn');
+
+            if (connected) {
+                indicator.classList.add('connected');
+                status.textContent = 'Connected';
+                btn.textContent = 'Disconnect';
+                btn.classList.remove('btn');
+                btn.classList.add('btn', 'danger');
+            } else {
+                indicator.classList.remove('connected');
+                status.textContent = 'Disconnected';
+                btn.textContent = 'Connect';
+                btn.classList.remove('danger');
+                btn.classList.add('btn');
+            }
+        }
+
+        function handleWebSocketMessage(data) {
+            const eventType = data.type;
+            let category = 'connection';
+            let title = '📨 Message';
+            let content = '';
+
+            switch (eventType) {
+                case 'connection_established':
+                    category = 'connection';
+                    title = '🎉 Welcome';
+                    content = `Connected as ${data.user} to ${data.message}`;
+                    break;
+
+                case 'bug_notification':
+                    category = 'bug';
+                    title = `🐛 Bug ${data.event_type}`;
+                    content = `User: ${data.user}\n`;
+                    if (data.bug && data.bug.title) {
+                        content += `Bug: ${data.bug.title}\n`;
+                    }
+                    content += formatJSON(data);
+                    updateStats('bugs');
+                    break;
+
+                case 'comment_notification':
+                    category = 'comment';
+                    title = '💬 New Comment';
+                    content = `User: ${data.user}\n`;
+                    if (data.comment && data.comment.message) {
+                        content += `Message: ${data.comment.message.substring(0, 100)}...\n`;
+                    }
+                    content += formatJSON(data);
+                    updateStats('comments');
+                    break;
+
+                case 'typing_indicator':
+                    category = 'typing';
+                    title = '⌨️ Typing';
+                    const status = data.is_typing ? 'started typing' : 'stopped typing';
+                    content = `${data.user} ${status}`;
+                    if (data.bug_id) {
+                        content += ` on bug #${data.bug_id}`;
+                    }
+                    updateStats('typing');
+                    break;
+
+                case 'pong':
+                    category = 'connection';
+                    title = '🏓 Pong';
+                    content = `Response from ${data.user} at ${data.timestamp}`;
+                    break;
+
+                case 'error':
+                    category = 'error';
+                    title = '❌ Error';
+                    content = data.message;
+                    updateStats('errors');
+                    break;
+
+                default:
+                    category = 'connection';
+                    title = `📨 ${eventType}`;
+                    content = formatJSON(data);
+            }
+
+            addLogEntry(category, title, content, data);
+        }
+
+        function addLogEntry(category, title, content, rawData = null) {
+            const log = document.getElementById('messageLog');
+            const timestamp = new Date().toLocaleTimeString();
+
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${category}`;
+            entry.setAttribute('data-category', category);
+
+            let html = `
+                <div class="timestamp">${timestamp}</div>
+                <div class="event-type">${title}</div>
+                <div>${content}</div>
+            `;
+
+            if (rawData) {
+                html += `<div class="json-formatter">${formatJSON(rawData)}</div>`;
+            }
+
+            entry.innerHTML = html;
+
+            // Apply current filter
+            if (currentFilter !== 'all' && category !== currentFilter) {
+                entry.style.display = 'none';
+            }
+
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+
+            // Keep only last 100 entries
+            while (log.children.length > 100) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        function formatJSON(obj) {
+            return JSON.stringify(obj, null, 2)
+                .replace(/"([^"]+)":/g, '<span class="json-key">"$1":</span>')
+                .replace(/: "([^"]+)"/g, ': <span class="json-string">"$1"</span>')
+                .replace(/: (\d+)/g, ': <span class="json-number">$1</span>')
+                .replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>');
+        }
+
+        function updateStats(type) {
+            stats[type]++;
+            const elementMap = {
+                bugs: 'bugEvents',
+                comments: 'commentEvents',
+                typing: 'typingEvents',
+                errors: 'errorEvents'
+            };
+            document.getElementById(elementMap[type]).textContent = stats[type];
+        }
+
+        function startConnectionTimer() {
+            setInterval(() => {
+                if (connectionStartTime) {
+                    const elapsed = new Date() - connectionStartTime;
+                    const minutes = Math.floor(elapsed / 60000);
+                    const seconds = Math.floor((elapsed % 60000) / 1000);
+                    document.getElementById('connectionTime').textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        function stopConnectionTimer() {
+            connectionStartTime = null;
+            document.getElementById('connectionTime').textContent = '00:00';
+        }
+
+        function sendPing() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: 'ping',
+                    timestamp: new Date().toISOString()
+                };
+                ws.send(JSON.stringify(message));
+                addLogEntry('connection', '📤 Ping Sent', `Sent ping at ${message.timestamp}`);
+            } else {
+                alert('Please connect to WebSocket first');
+            }
+        }
+
+        function testTyping() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                // Start typing
+                ws.send(JSON.stringify({
+                    type: 'typing_indicator',
+                    is_typing: true,
+                    bug_id: 1
+                }));
+
+                addLogEntry('typing', '📤 Typing Started', 'Simulating typing indicator');
+
+                // Stop typing after 3 seconds
+                setTimeout(() => {
+                    ws.send(JSON.stringify({
+                        type: 'typing_indicator',
+                        is_typing: false,
+                        bug_id: 1
+                    }));
+                    addLogEntry('typing', '📤 Typing Stopped', 'Stopped typing indicator');
+                }, 3000);
+            } else {
+                alert('Please connect to WebSocket first');
+            }
+        }
+
+        function sendCustomMessage() {
+            const message = prompt('Enter custom JSON message:');
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                try {
+                    JSON.parse(message); // Validate JSON
+                    ws.send(message);
+                    addLogEntry('connection', '📤 Custom Message', message);
+                } catch (e) {
+                    alert('Invalid JSON format');
+                }
+            }
+        }
+
+        function stressTest() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const count = 10;
+                addLogEntry('connection', '⚡ Stress Test', `Sending ${count} ping messages`);
+                
+                for (let i = 0; i < count; i++) {
+                    setTimeout(() => {
+                        ws.send(JSON.stringify({
+                            type: 'ping',
+                            timestamp: new Date().toISOString(),
+                            test_id: i + 1
+                        }));
+                    }, i * 100);
+                }
+            } else {
+                alert('Please connect to WebSocket first');
+            }
+        }
+
+        function getSessionFromBrowser() {
+            // Extract session key from browser cookies
+            const cookies = document.cookie.split(';');
+            let sessionId = null;
+            
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'sessionid') {
+                    sessionId = value;
+                    break;
+                }
+            }
+            
+            if (sessionId) {
+                document.getElementById('sessionKey').value = sessionId;
+                addLogEntry('connection', '🔑 Session Key Found', `Session key extracted from browser: ${sessionId.substring(0, 20)}...`);
+                alert('Session key found and filled! You can now connect.');
+            } else {
+                addLogEntry('error', '❌ No Session Key', 'No session key found. Please login to Django admin first.');
+                alert('No session key found. Please login to Django admin first: /admin/');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('messageLog').innerHTML = '';
+            messageCount = 0;
+            document.getElementById('msgCount').textContent = '0';
+            stats = { bugs: 0, comments: 0, typing: 0, errors: 0 };
+            document.getElementById('bugEvents').textContent = '0';
+            document.getElementById('commentEvents').textContent = '0';
+            document.getElementById('typingEvents').textContent = '0';
+            document.getElementById('errorEvents').textContent = '0';
+        }
+
+        function loadTemplate(templateName) {
+            const template = templates[templateName];
+            document.getElementById('apiMethod').value = template.method;
+            document.getElementById('apiEndpoint').value = template.endpoint;
+            document.getElementById('apiPayload').value = JSON.stringify(template.payload, null, 2);
+        }
+
+        async function sendApiRequest() {
+            const method = document.getElementById('apiMethod').value;
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const payloadText = document.getElementById('apiPayload').value;
+            const token = document.getElementById('jwtToken').value;
+
+            if (!endpoint) {
+                alert('Please enter an API endpoint');
+                return;
+            }
+
+            try {
+                const payload = payloadText ? JSON.parse(payloadText) : null;
+                const url = `http://localhost:8000${endpoint}`;
+
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+
+                if (token) {
+                    options.headers.Authorization = `Bearer ${token}`;
+                }
+
+                if (payload && ['POST', 'PUT', 'PATCH'].includes(method)) {
+                    options.body = JSON.stringify(payload);
+                }
+
+                addLogEntry('connection', '🌐 API Request', `${method} ${endpoint}`);
+
+                const response = await fetch(url, options);
+                const responseData = await response.json();
+
+                if (response.ok) {
+                    addLogEntry('connection', '✅ API Success', `${response.status} ${response.statusText}\n${formatJSON(responseData)}`);
+                } else {
+                    addLogEntry('error', '❌ API Error', `${response.status} ${response.statusText}\n${formatJSON(responseData)}`);
+                }
+
+            } catch (error) {
+                addLogEntry('error', '❌ API Failed', error.message);
+            }
+        }
+
+        async function loginAndGetToken() {
+            const username = prompt('Enter username:');
+            const password = prompt('Enter password:');
+
+            if (!username || !password) return;
+
+            try {
+                const response = await fetch('http://localhost:8000/api/auth/login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('jwtToken').value = data.access;
+                    addLogEntry('connection', '🔑 Token Obtained', 'JWT token saved successfully');
+                    alert('Token obtained and saved!');
+                } else {
+                    addLogEntry('error', '❌ Login Failed', data.detail || 'Authentication failed');
+                    alert('Login failed: ' + (data.detail || 'Invalid credentials'));
+                }
+            } catch (error) {
+                addLogEntry('error', '❌ Login Error', error.message);
+                alert('Login error: ' + error.message);
+            }
+        }
+
+        // Filter functionality
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                currentFilter = this.getAttribute('data-filter');
+                filterLogEntries();
+            });
+        });
+
+        function filterLogEntries() {
+            const entries = document.querySelectorAll('.log-entry');
+            entries.forEach(entry => {
+                const category = entry.getAttribute('data-category');
+                if (currentFilter === 'all' || category === currentFilter) {
+                    entry.style.display = 'block';
+                } else {
+                    entry.style.display = 'none';
+                }
+            });
+        }
+
+        // Auto-scroll to bottom
+        setInterval(() => {
+            const log = document.getElementById('messageLog');
+            if (log.scrollTop + log.clientHeight >= log.scrollHeight - 50) {
+                log.scrollTop = log.scrollHeight;
+            }
+        }, 1000);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            addLogEntry('connection', '🚀 Dashboard Loaded', 'Real-time monitoring dashboard ready!');
+            
+            // Try to auto-fill session key if user is already logged in
+            setTimeout(getSessionFromBrowser, 1000);
+        });
+    </script>
+</body>
+</html>
